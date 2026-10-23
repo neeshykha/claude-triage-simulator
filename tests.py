@@ -79,5 +79,30 @@ class TriageTest(unittest.TestCase):
         self.assertIn("error", rows[0])
 
 
+class EvalTest(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        (self.root / "data").mkdir()
+        (self.root / "results").mkdir()
+
+    def score(self, tickets: list, predictions: list, groups: list = ()) -> str:
+        write_jsonl(self.root / "data" / "tickets.jsonl", tickets)
+        write_jsonl(self.root / "predictions.jsonl", predictions)
+        with mock.patch.multiple(scorer, ROOT=self.root, CONFUSABLE_GROUPS=list(groups)), \
+                contextlib.redirect_stdout(io.StringIO()):
+            scorer.main()
+        return (self.root / "results" / "scorecard.md").read_text()
+
+    def test_scorecard_is_written_when_every_ticket_failed(self):
+        failure = "claude CLI exited 1: not logged in"
+        card = self.score([ticket("T001"), ticket("T002")],
+                          [{"id": "T001", "error": failure}, {"id": "T002", "error": failure}])
+
+        self.assertIn("**Tickets scored:** 0/2 (2 failed to classify)", card)
+        self.assertIn(f"- T001: {failure}", card)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -24,6 +24,10 @@ def load_jsonl(path: Path) -> dict:
     return {json.loads(l)["id"]: json.loads(l) for l in path.open()}
 
 
+def ratio(k: int, n: int) -> str:
+    return f"{k}/{n} ({k/n:.0%})" if n else f"{k}/{n} (n/a)"
+
+
 def main() -> None:
     tickets = load_jsonl(ROOT / "data" / "tickets.jsonl")
     predictions = load_jsonl(ROOT / "predictions.jsonl")
@@ -39,8 +43,8 @@ def main() -> None:
     route_correct = sum(1 for pid, p in scored.items() if p["routing"] == tickets[pid]["true_routing"])
 
     lines.append(f"**Tickets scored:** {n}/{len(tickets)} ({len(errors)} failed to classify)\n")
-    lines.append(f"**Severity accuracy:** {sev_correct}/{n} ({sev_correct/n:.0%})\n")
-    lines.append(f"**Routing accuracy:** {route_correct}/{n} ({route_correct/n:.0%})\n")
+    lines.append(f"**Severity accuracy:** {ratio(sev_correct, n)}\n")
+    lines.append(f"**Routing accuracy:** {ratio(route_correct, n)}\n")
 
     # Confusion matrix for severity
     lines.append("\n## Severity Confusion Matrix\n")

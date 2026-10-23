@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Triage Simulator results</title>
+<meta name="description" content="Scorecard from the last committed run of an AI support-ticket triage classifier built on Claude Code: severity and routing accuracy, confusion matrix, and misses.">
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1b1b; --muted: #5d5d5d; --line: #dedede; --soft: #f4f4f2;
+  --ok-fg: #17603a; --ok-bg: #e3f1e8; --miss-fg: #8f3410; --miss-bg: #fbebe2; --accent: #1d4f91;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131313; --fg: #ebebeb; --muted: #a4a4a4; --line: #333333; --soft: #1d1d1d;
+    --ok-fg: #8fd6a8; --ok-bg: #15301f; --miss-fg: #f2ad87; --miss-bg: #3a2318; --accent: #92b8ee;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+main { max-width: 46rem; margin: 0 auto; padding: 2.5rem 1rem 3rem; }
+a { color: var(--accent); }
+code { font: 0.9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.kicker { margin: 0 0 0.5rem; color: var(--muted); font-size: 0.9rem; }
+h1 { font-size: 1.75rem; line-height: 1.25; margin: 0 0 1rem; }
+h2 { font-size: 1.25rem; margin: 2.75rem 0 0.75rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+h3 { font-size: 1rem; margin: 1.5rem 0 0.5rem; }
+p { margin: 0 0 1rem; }
+.lede { font-size: 1.05rem; }
+.muted, .note, figcaption { color: var(--muted); }
+.note { font-size: 0.92rem; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin: 1.75rem 0 0; padding: 0; list-style: none; }
+.stats li { background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 0.8rem 0.9rem; }
+.stats .label { display: block; font-size: 0.85rem; color: var(--muted); }
+.stats .value { display: block; font-size: 1.5rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.stats .sub { display: block; font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+figure { margin: 0 0 1rem; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { border: 1px solid var(--line); padding: 0.55rem 0.85rem; text-align: center; min-width: 3.25rem; }
+thead th { font-weight: 600; background: var(--soft); }
+th[scope="row"] { background: var(--soft); }
+.corner { font-weight: 400; font-size: 0.8rem; color: var(--muted); text-align: left; }
+td.diag { background: var(--ok-bg); color: var(--ok-fg); font-weight: 650; }
+td.off { background: var(--miss-bg); color: var(--miss-fg); font-weight: 650; }
+td.zero { color: var(--muted); }
+figcaption { font-size: 0.9rem; margin-top: 0.6rem; }
+.misses { list-style: none; margin: 0; padding: 0; }
+.misses li { padding: 0.75rem 0; border-bottom: 1px solid var(--line); }
+.misses li:last-child { border-bottom: 0; }
+.row-head { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: baseline; }
+.tid { font: 600 0.9rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.shift { font-size: 0.9rem; font-weight: 600; }
+.ticket { margin: 0.3rem 0 0; color: var(--muted); font-size: 0.95rem; }
+.route { margin: 0.3rem 0 0; font-size: 0.95rem; }
+.group { margin-bottom: 1.25rem; }
+.group h3 { margin-bottom: 0.4rem; }
+.count { font-weight: 400; color: var(--muted); white-space: nowrap; }
+.marks { list-style: none; margin: 0 0 0.5rem; padding: 0; }
+.marks li { display: flex; gap: 0.6rem; align-items: baseline; padding: 0.15rem 0; font-size: 0.95rem; }
+.mark { display: inline-block; min-width: 3rem; text-align: center; font-size: 0.78rem; font-weight: 650; border-radius: 4px; padding: 0.05rem 0.35rem; }
+.mark.ok { background: var(--ok-bg); color: var(--ok-fg); }
+.mark.miss { background: var(--miss-bg); color: var(--miss-fg); }
+dl { margin: 0; }
+dt { font-weight: 600; margin-top: 1rem; }
+dd { margin: 0.2rem 0 0; }
+footer { margin-top: 2.75rem; padding-top: 1.25rem; border-top: 1px solid var(--line); font-size: 0.9rem; color: var(--muted); }
+footer ul { padding-left: 1.1rem; margin: 0.4rem 0 1rem; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 30rem) {
+  main { padding-top: 1.75rem; }
+  h1 { font-size: 1.45rem; }
+  th, td { padding: 0.5rem 0.55rem; min-width: 2.6rem; }
+  .stats { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .stats .value { font-size: 1.3rem; }
+}
+</style>
+</head>
+<body>
+<main>
+
+<header>
+<p class="kicker">Claude Triage Simulator &middot; scorecard from the last committed run</p>
+<h1>All 12 critical tickets were caught, and no miss was more than one severity level off.</h1>
+<p class="lede">A classifier built on Claude Code read 60 synthetic smart-home support tickets, rated each one&rsquo;s urgency from P1 (critical) to P4 (low), and routed it to one of seven teams. Every wrong severity call landed one level from its label, so nothing critical was waved through as routine.</p>
+<ul class="stats">
+<li><span class="label">Severity accuracy</span><span class="value">75%</span><span class="sub">45/60 tickets</span></li>
+<li><span class="label">Routing accuracy</span><span class="value">87%</span><span class="sub">52/60 tickets</span></li>
+<li><span class="label">P1 tickets caught</span><span class="value">12/12</span><span class="sub">none missed</span></li>
+<li><span class="label">Under-triage</span><span class="value">8</span><span class="sub">rated less urgent than labeled</span></li>
+<li><span class="label">Over-triage</span><span class="value">7</span><span class="sub">rated more urgent than labeled</span></li>
+<li><span class="label">Tickets scored</span><span class="value">60/60</span><span class="sub">0 failed to classify</span></li>
+</ul>
+</header>
+
+<section aria-labelledby="matrix">
+<h2 id="matrix">Severity confusion matrix</h2>
+<figure>
+<div class="table-wrap">
+<table>
+<thead><tr><th scope="col" class="corner">labeled &darr; / predicted &rarr;</th><th scope="col">P1</th><th scope="col">P2</th><th scope="col">P3</th><th scope="col">P4</th></tr></thead>
+<tbody>
+<tr><th scope="row">P1</th><td class="diag">12</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+<tr><th scope="row">P2</th><td class="off">3</td><td class="diag">6</td><td class="off">6</td><td class="zero">0</td></tr>
+<tr><th scope="row">P3</th><td class="zero">0</td><td class="off">4</td><td class="diag">9</td><td class="off">2</td></tr>
+<tr><th scope="row">P4</th><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="diag">18</td></tr>
+</tbody>
+</table>
+</div>
+<figcaption>Rows are the labeled severity, columns the prediction; the diagonal is correct. Every cell two or more steps off the diagonal is 0. Most misses sit in the P2 row: 3 P2 tickets were predicted P1 and 6 were predicted P3.</figcaption>
+</figure>
+</section>
+
+<section aria-labelledby="misses">
+<h2 id="misses">Severity misses</h2>
+<p class="muted">Under-triage (rated less urgent than the label) is the costly direction; over-triage wastes effort but doesn&rsquo;t leave a problem waiting.</p>
+<h3>Under-triage (8)</h3>
+<ul class="misses">
+<li><div class="row-head"><span class="tid">T012</span><span class="shift">labeled P2 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P3</span></div><p class="ticket">Bedroom thermostat shows offline in the app, has been since yesterday. Can&#x27;t adjust temp remotely, have to use the manual panel.</p></li>
+<li><div class="row-head"><span class="tid">T018</span><span class="shift">labeled P2 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P3</span></div><p class="ticket">App keeps saying my lock is &#x27;low battery critical&#x27; and won&#x27;t let me lock remotely, though it still works fine from the physical keypad for now.</p></li>
+<li><div class="row-head"><span class="tid">T020</span><span class="shift">labeled P2 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P3</span></div><p class="ticket">Access panel at the pool gate not responding to any resident fobs or the app, pool is still physically lockable with a key for now but that&#x27;s not a real long-term fix.</p></li>
+<li><div class="row-head"><span class="tid">T021</span><span class="shift">labeled P2 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P3</span></div><p class="ticket">App keeps logging me out every few hours and I have to keep re-entering my password, kind of annoying but I can still get back in fine.</p></li>
+<li><div class="row-head"><span class="tid">T022</span><span class="shift">labeled P2 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P3</span></div><p class="ticket">Kitchen thermostat runs about 4 degrees colder than what I set it to, noticed this over the last week, still adjustable just inaccurate.</p></li>
+<li><div class="row-head"><span class="tid">T050</span><span class="shift">labeled P3 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P4</span></div><p class="ticket">App crashes every single time I try to open the energy usage tab, happens consistently on my phone (iPhone 14, latest app version).</p></li>
+<li><div class="row-head"><span class="tid">T054</span><span class="shift">labeled P2 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P3</span></div><p class="ticket">Community room thermostat is offline, room isn&#x27;t in use this week so no rush, but flagging before the weekend event booking.</p></li>
+<li><div class="row-head"><span class="tid">T055</span><span class="shift">labeled P3 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P4</span></div><p class="ticket">Gym access panel let me in fine today but the app still shows it as &#x27;offline&#x27; from yesterday, seems like a display bug rather than an actual access problem.</p></li>
+</ul>
+<h3>Over-triage (7)</h3>
+<ul class="misses">
+<li><div class="row-head"><span class="tid">T013</span><span class="shift">labeled P2 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P1</span></div><p class="ticket">The leak sensor under my bathroom sink stopped reporting two days ago, just shows a gray icon. No water issue currently but I want it fixed.</p></li>
+<li><div class="row-head"><span class="tid">T014</span><span class="shift">labeled P2 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P1</span></div><p class="ticket">My unit&#x27;s lock keeps saying &#x27;device unreachable&#x27; when I try to lock or unlock from the app, been like this since the update yesterday.</p></li>
+<li><div class="row-head"><span class="tid">T019</span><span class="shift">labeled P2 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P1</span></div><p class="ticket">My unit&#x27;s leak sensor by the water heater has been offline since Tuesday, tried re-pairing it in the app with no luck.</p></li>
+<li><div class="row-head"><span class="tid">T023</span><span class="shift">labeled P3 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P2</span></div><p class="ticket">My unlock schedule (auto-unlock at 8am for dog walker) hasn&#x27;t been triggering the last two days, I&#x27;ve had to unlock manually each morning.</p></li>
+<li><div class="row-head"><span class="tid">T029</span><span class="shift">labeled P3 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P2</span></div><p class="ticket">Had an app lock issue yesterday evening, used my keypad code as backup and got in without a problem. App unlock has worked fine again since this morning.</p></li>
+<li><div class="row-head"><span class="tid">T030</span><span class="shift">labeled P3 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P2</span></div><p class="ticket">Resident in 112 reported being locked out last night, our office confirmed they used the backup code successfully within a few minutes and have had no issues since.</p></li>
+<li><div class="row-head"><span class="tid">T051</span><span class="shift">labeled P3 <span aria-hidden="true">&rarr;</span><span class="sr"> predicted</span> P2</span></div><p class="ticket">Push notifications for lock activity stopped coming through about a week ago, app still shows the activity log fine when I open it manually.</p></li>
+</ul>
+</section>
+
+<section aria-labelledby="audit">
+<h2 id="audit">Confusable-pattern audit</h2>
+<p class="muted">Trap tickets written to check that the classifier follows the nuance rules in <code>CLAUDE.md</code> rather than reacting to keywords like &ldquo;locked out&rdquo; or &ldquo;emergency.&rdquo;</p>
+<div class="group"><h3>Resolved lockout via backup code (should not stay P1) <span class="count">1/3 correct</span></h3><ul class="marks"><li><span class="mark ok">OK</span><span class="tid">T028</span> labeled P2, predicted P2</li><li><span class="mark miss">Miss</span><span class="tid">T029</span> labeled P3, predicted P2</li><li><span class="mark miss">Miss</span><span class="tid">T030</span> labeled P3, predicted P2</li></ul><p class="note">Both misses were predicted P2, not P1. <code>CLAUDE.md</code> says a lockout already resolved with a backup code is &ldquo;P2 at most,&rdquo; and doesn&rsquo;t say when it drops to P3.</p></div>
+<div class="group"><h3>False-alarm leak, confirmed dry (should downgrade to P3) <span class="count">4/4 correct</span></h3><ul class="marks"><li><span class="mark ok">OK</span><span class="tid">T031</span> labeled P3, predicted P3</li><li><span class="mark ok">OK</span><span class="tid">T032</span> labeled P3, predicted P3</li><li><span class="mark ok">OK</span><span class="tid">T033</span> labeled P3, predicted P3</li><li><span class="mark ok">OK</span><span class="tid">T034</span> labeled P3, predicted P3</li></ul></div>
+<div class="group"><h3>Multi-unit thermostat = property-wide P1, not per-unit P2 <span class="count">2/2 correct</span></h3><ul class="marks"><li><span class="mark ok">OK</span><span class="tid">T007</span> labeled P1, predicted P1</li><li><span class="mark ok">OK</span><span class="tid">T008</span> labeled P1, predicted P1</li></ul></div>
+<div class="group"><h3>Unresolved &gt;24h on safety-adjacent device = escalation override to P1 <span class="count">3/3 correct</span></h3><ul class="marks"><li><span class="mark ok">OK</span><span class="tid">T009</span> labeled P1, predicted P1</li><li><span class="mark ok">OK</span><span class="tid">T010</span> labeled P1, predicted P1</li><li><span class="mark ok">OK</span><span class="tid">T060</span> labeled P1, predicted P1</li></ul></div>
+</section>
+
+<section aria-labelledby="routing">
+<h2 id="routing">Routing misses (8)</h2>
+<ul class="misses">
+<li><div class="row-head"><span class="tid">T006</span></div><p class="route">labeled <strong>Field Service / Hardware Dispatch</strong>, predicted <strong>Access Control &amp; Security</strong></p><p class="ticket">Front gate and lobby access panel both show offline in the dashboard as of 7am. No one can badge in through the main entrance.</p></li>
+<li><div class="row-head"><span class="tid">T012</span></div><p class="route">labeled <strong>Field Service / Hardware Dispatch</strong>, predicted <strong>Tier 2 Escalations</strong></p><p class="ticket">Bedroom thermostat shows offline in the app, has been since yesterday. Can&#x27;t adjust temp remotely, have to use the manual panel.</p></li>
+<li><div class="row-head"><span class="tid">T020</span></div><p class="route">labeled <strong>Field Service / Hardware Dispatch</strong>, predicted <strong>Access Control &amp; Security</strong></p><p class="ticket">Access panel at the pool gate not responding to any resident fobs or the app, pool is still physically lockable with a key for now but that&#x27;s not a real long-term fix.</p></li>
+<li><div class="row-head"><span class="tid">T021</span></div><p class="route">labeled <strong>Tier 2 Escalations</strong>, predicted <strong>Product/Engineering Bug Report</strong></p><p class="ticket">App keeps logging me out every few hours and I have to keep re-entering my password, kind of annoying but I can still get back in fine.</p></li>
+<li><div class="row-head"><span class="tid">T022</span></div><p class="route">labeled <strong>Tier 2 Escalations</strong>, predicted <strong>Field Service / Hardware Dispatch</strong></p><p class="ticket">Kitchen thermostat runs about 4 degrees colder than what I set it to, noticed this over the last week, still adjustable just inaccurate.</p></li>
+<li><div class="row-head"><span class="tid">T024</span></div><p class="route">labeled <strong>Tier 1 Support</strong>, predicted <strong>Product/Engineering Bug Report</strong></p><p class="ticket">App is really slow to load my thermostat settings, sometimes takes 30 seconds, but it does eventually work.</p></li>
+<li><div class="row-head"><span class="tid">T051</span></div><p class="route">labeled <strong>Product/Engineering Bug Report</strong>, predicted <strong>Access Control &amp; Security</strong></p><p class="ticket">Push notifications for lock activity stopped coming through about a week ago, app still shows the activity log fine when I open it manually.</p></li>
+<li><div class="row-head"><span class="tid">T058</span></div><p class="route">labeled <strong>Tier 1 Support</strong>, predicted <strong>Access Control &amp; Security</strong></p><p class="ticket">Replaced batteries in the unit 220 lock per the low-battery alert, everything working normally now, just logging that it&#x27;s resolved.</p></li>
+</ul>
+</section>
+
+<section aria-labelledby="method">
+<h2 id="method">How it was measured</h2>
+<dl>
+<dt>Tickets</dt>
+<dd>60 synthetic tickets written to mirror multifamily smart-home support (smart locks, thermostats, leak sensors, access panels, the resident app). Each has an author role (resident, property manager, or maintenance), the ticket text, and a labeled severity and routing team. No real customer or company data.</dd>
+<dt>Classifier</dt>
+<dd><code>triage.py</code> calls the Claude Code CLI once per ticket (<code>claude -p &hellip; --model sonnet --output-format json</code>) from the repo folder, so <code>CLAUDE.md</code> is loaded as the instructions: the P1&ndash;P4 taxonomy, seven routing teams, an escalation override for safety-related devices left broken for more than 24 hours, and the confusable patterns. The prompt contains only the ticket text and author role, not the labels.</dd>
+<dt>Scoring</dt>
+<dd><code>eval.py</code> compares each prediction to its label by exact match, separately for severity and routing. A severity miss counts as under-triage if the prediction is less urgent than the label and over-triage if more. The audit groups are fixed ticket IDs listed in <code>eval.py</code>.</dd>
+<dt>Limits</dt>
+<dd>One run. The per-ticket predictions file is generated locally and not committed; the scorecard lists every miss, so every ticket not listed above matched its label. <code>--model sonnet</code> is an alias, and the scorecard doesn&rsquo;t record which model version or date the run used.</dd>
+</dl>
+</section>
+
+<footer>
+<p>Every number on this page is copied from <a href="https://github.com/neeshykha/claude-triage-simulator/blob/master/results/scorecard.md"><code>results/scorecard.md</code></a> as committed; the evaluation was not re-run for this page. Ticket text is from <a href="https://github.com/neeshykha/claude-triage-simulator/blob/master/data/tickets.jsonl"><code>data/tickets.jsonl</code></a>.</p>
+<p>Source:</p>
+<ul>
+<li><a href="https://github.com/neeshykha/claude-triage-simulator">Repository and README</a></li>
+<li><a href="https://github.com/neeshykha/claude-triage-simulator/blob/master/CLAUDE.md"><code>CLAUDE.md</code></a>: classification rules</li>
+<li><a href="https://github.com/neeshykha/claude-triage-simulator/blob/master/triage.py"><code>triage.py</code></a> and <a href="https://github.com/neeshykha/claude-triage-simulator/blob/master/eval.py"><code>eval.py</code></a>: classifier and scoring</li>
+</ul>
+</footer>
+
+</main>
+</body>
+</html>

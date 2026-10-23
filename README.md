@@ -67,7 +67,7 @@ python3 triage.py   # classifies all 60 tickets, ~1-2 min
 python3 eval.py     # scores predictions, writes results/scorecard.md
 ```
 
-`triage.py` is resumable — if interrupted, re-running it skips tickets already in `predictions.jsonl`.
+`triage.py` is resumable — if interrupted, re-running it skips tickets already classified in `predictions.jsonl` and retries any that failed.
 
 ---
 

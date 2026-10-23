@@ -42,7 +42,10 @@ def main() -> None:
     tickets = [json.loads(line) for line in DATA_PATH.open()]
     already_done = set()
     if OUTPUT_PATH.exists():
-        already_done = {json.loads(l)["id"] for l in OUTPUT_PATH.open()}
+        # Only a successful prediction counts as done, so a re-run retries failures.
+        # Later rows win, matching how eval.py reads the file.
+        latest = {(row := json.loads(l))["id"]: row for l in OUTPUT_PATH.open()}
+        already_done = {pid for pid, row in latest.items() if "error" not in row}
     remaining = [t for t in tickets if t["id"] not in already_done]
     print(f"Resuming: {len(already_done)} already done, {len(remaining)} remaining", file=sys.stderr)
 

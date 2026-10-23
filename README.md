@@ -38,7 +38,7 @@ triage.py reads data/tickets.jsonl
 
 The strongest result isn't the headline accuracy — it's that **every P1 was caught**, and no miss jumped more than one severity band (nothing that was actually critical got waved through as routine). The clearest weak spot among the trap groups: tickets describing a lockout that was already resolved via a backup code. The classifier caught 1 of 3 — it moved all three off P1, but stopped at P2 on the two labeled P3 (T029, T030). `CLAUDE.md` only says this pattern is "P2 at most," so the rule itself never draws that P2/P3 line. That's a legible, specific failure mode, not a vague accuracy gap, which is exactly what an eval harness is supposed to surface.
 
-Full breakdown, confusion matrix, and per-ticket misses: [`results/scorecard.md`](results/scorecard.md).
+Full breakdown, confusion matrix, and per-ticket misses: [`results/scorecard.md`](results/scorecard.md), or the [report page](https://neeshykha.github.io/claude-triage-simulator/) for the same results with the ticket text behind each miss.
 
 ---
 

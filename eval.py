@@ -42,7 +42,9 @@ def main() -> None:
     sev_correct = sum(1 for pid, p in scored.items() if p["severity"] == tickets[pid]["true_severity"])
     route_correct = sum(1 for pid, p in scored.items() if p["routing"] == tickets[pid]["true_routing"])
 
-    lines.append(f"**Tickets scored:** {n}/{len(tickets)} ({len(errors)} failed to classify)\n")
+    missing = [pid for pid in tickets if pid not in predictions]
+    not_run = f", {len(missing)} not yet classified" if missing else ""
+    lines.append(f"**Tickets scored:** {n}/{len(tickets)} ({len(errors)} failed to classify{not_run})\n")
     lines.append(f"**Severity accuracy:** {ratio(sev_correct, n)}\n")
     lines.append(f"**Routing accuracy:** {ratio(route_correct, n)}\n")
 

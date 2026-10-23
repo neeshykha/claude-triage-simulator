@@ -116,6 +116,12 @@ class EvalTest(unittest.TestCase):
         self.assertIn("  - [NOT SCORED] T002: true P3", card)
         self.assertIn("  - [NOT SCORED] T003: true P3", card)
 
+    def test_header_accounts_for_tickets_missing_from_predictions(self):
+        card = self.score([ticket("T001"), ticket("T002"), ticket("T003")],
+                          [{"id": "T001", "severity": "P2", "routing": "Tier 1 Support"}])
+
+        self.assertIn("**Tickets scored:** 1/3 (0 failed to classify, 2 not yet classified)", card)
+
 
 if __name__ == "__main__":
     unittest.main()

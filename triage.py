@@ -25,8 +25,10 @@ Return only the JSON object described in the Output Format section. No other tex
 
 def classify(ticket: dict) -> dict:
     prompt = PROMPT_TEMPLATE.format(author_role=ticket["author_role"], text=ticket["text"])
+    # --tools "" keeps classification blind: with tools on, the CLI could read the labels
+    # in data/tickets.jsonl from cwd. It stays last since --tools takes a list of values.
     result = subprocess.run(
-        ["claude", "-p", prompt, "--model", "sonnet", "--output-format", "json"],
+        ["claude", "-p", prompt, "--model", "sonnet", "--output-format", "json", "--tools", ""],
         cwd=ROOT,
         capture_output=True,
         text=True,

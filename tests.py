@@ -69,6 +69,16 @@ class TriageTest(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertIn("error", rows[0])
 
+    def test_cli_runs_with_tools_disabled(self):
+        write_jsonl(self.data, [ticket("T001")])
+        answer = {"severity": "P2", "routing": "Tier 1 Support", "reasoning": "x"}
+        run = mock.Mock(side_effect=cli_returning(json.dumps(answer)))
+        self.run_triage(subprocess=mock.Mock(run=run))
+
+        cmd = run.call_args.args[0]
+        self.assertIn("--tools", cmd)
+        self.assertEqual(cmd[cmd.index("--tools") + 1:], [""])
+
     def test_answer_missing_a_field_is_written_once_as_a_failure(self):
         write_jsonl(self.data, [ticket("T001")])
         answer = {"severity": "P2", "reasoning": "no routing field"}

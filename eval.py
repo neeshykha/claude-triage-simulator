@@ -80,13 +80,16 @@ def main() -> None:
     lines.append("Groups deliberately written to test whether the classifier applies the")
     lines.append("nuance rules in CLAUDE.md, not just keyword matching.\n")
     for ids, label in CONFUSABLE_GROUPS:
-        hits = sum(
-            1 for pid in ids
-            if pid in scored and scored[pid]["severity"] == tickets[pid]["true_severity"]
-        )
-        lines.append(f"- **{label}**: {hits}/{len(ids)} correct")
+        # Same denominator as the accuracy lines: failed or never-classified tickets
+        # are reported as not scored rather than counted as misses.
+        group_scored = [pid for pid in ids if pid in scored]
+        hits = sum(1 for pid in group_scored if scored[pid]["severity"] == tickets[pid]["true_severity"])
+        unscored = len(ids) - len(group_scored)
+        suffix = f" ({unscored} not scored)" if unscored else ""
+        lines.append(f"- **{label}**: {hits}/{len(group_scored)} correct{suffix}")
         for pid in ids:
             if pid not in scored:
+                lines.append(f"  - [NOT SCORED] {pid}: true {tickets[pid]['true_severity']}")
                 continue
             mark = "OK" if scored[pid]["severity"] == tickets[pid]["true_severity"] else "MISS"
             lines.append(f"  - [{mark}] {pid}: true {tickets[pid]['true_severity']}, predicted {scored[pid]['severity']}")

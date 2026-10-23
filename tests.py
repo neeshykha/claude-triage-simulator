@@ -103,6 +103,19 @@ class EvalTest(unittest.TestCase):
         self.assertIn("**Tickets scored:** 0/2 (2 failed to classify)", card)
         self.assertIn(f"- T001: {failure}", card)
 
+    def test_confusable_audit_does_not_count_unscored_tickets_as_misses(self):
+        tickets = [ticket("T001", "P3"), ticket("T002", "P3"), ticket("T003", "P3")]
+        predictions = [
+            {"id": "T001", "severity": "P3", "routing": "Tier 1 Support"},
+            {"id": "T002", "error": "timed out"},
+            # T003 was never classified (run interrupted)
+        ]
+        card = self.score(tickets, predictions, groups=[(["T001", "T002", "T003"], "Trap")])
+
+        self.assertIn("- **Trap**: 1/1 correct (2 not scored)", card)
+        self.assertIn("  - [NOT SCORED] T002: true P3", card)
+        self.assertIn("  - [NOT SCORED] T003: true P3", card)
+
 
 if __name__ == "__main__":
     unittest.main()

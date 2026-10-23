@@ -49,7 +49,9 @@ CLAUDE.md                  # The classification logic — start here
 data/tickets.jsonl          # 60 labeled synthetic tickets (id, text, author_role, true_severity, true_routing)
 triage.py                   # Blind classification via the Claude Code CLI
 eval.py                     # Scoring harness: accuracy, confusion matrix, confusable-pattern audit
+tests.py                    # Regression tests for triage.py and eval.py (python3 -m unittest)
 results/scorecard.md        # Output of the last real run
+docs/index.html             # Report page rendering the scorecard (served via GitHub Pages)
 ```
 
 `predictions.jsonl` is generated locally and gitignored — regenerate it with `triage.py`.

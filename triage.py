@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 DATA_PATH = ROOT / "data" / "tickets.jsonl"
 OUTPUT_PATH = ROOT / "predictions.jsonl"
+SEVERITIES = {"P1", "P2", "P3", "P4"}
 
 PROMPT_TEMPLATE = """Classify this support ticket per the severity taxonomy, routing \
 categories, and output format defined in CLAUDE.md.
@@ -35,7 +36,13 @@ def classify(ticket: dict) -> dict:
         raise RuntimeError(f"claude CLI exited {result.returncode}: {result.stderr[:500]}")
     envelope = json.loads(result.stdout)
     raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", envelope["result"].strip())
-    return json.loads(raw)
+    prediction = json.loads(raw)
+    # An answer off the CLAUDE.md output contract is a failed classification, not a
+    # prediction for eval.py to score (it can't place "P1 - Critical" in the matrix).
+    if not isinstance(prediction, dict) or prediction.get("severity") not in SEVERITIES \
+            or not prediction.get("routing"):
+        raise ValueError(f"response is not a valid severity/routing answer: {raw[:200]}")
+    return prediction
 
 
 def main() -> None:

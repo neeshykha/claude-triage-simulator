@@ -60,6 +60,24 @@ class TriageTest(unittest.TestCase):
         latest = {r["id"]: r for r in read_jsonl(self.out)}  # later rows win, as in eval.py
         self.assertFalse([pid for pid, r in latest.items() if "error" in r])
 
+    def test_severity_outside_p1_to_p4_is_a_failure_not_a_prediction(self):
+        write_jsonl(self.data, [ticket("T001")])
+        answer = {"severity": "P1 - Critical", "routing": "Tier 1 Support", "reasoning": "x"}
+        self.run_triage(subprocess=mock.Mock(run=cli_returning(json.dumps(answer))))
+
+        rows = read_jsonl(self.out)
+        self.assertEqual(len(rows), 1)
+        self.assertIn("error", rows[0])
+
+    def test_answer_missing_a_field_is_written_once_as_a_failure(self):
+        write_jsonl(self.data, [ticket("T001")])
+        answer = {"severity": "P2", "reasoning": "no routing field"}
+        self.run_triage(subprocess=mock.Mock(run=cli_returning(json.dumps(answer))))
+
+        rows = read_jsonl(self.out)
+        self.assertEqual(len(rows), 1)
+        self.assertIn("error", rows[0])
+
 
 if __name__ == "__main__":
     unittest.main()
